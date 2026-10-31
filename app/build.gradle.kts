@@ -13,6 +13,34 @@ val hasReleaseSigning = !releaseKeystorePath.isNullOrBlank() &&
     !releaseKeyAlias.isNullOrBlank() &&
     !releaseKeyPassword.isNullOrBlank()
 
+// 版本号从 git tag 读取：CI 用 GITHUB_REF_NAME，本地回退到最近的 v* tag；都没有时用 1.0.0。
+fun versionNameFromTag(): String {
+    val ciTag = System.getenv("GITHUB_REF_NAME")
+    if (!ciTag.isNullOrBlank() && ciTag.startsWith("v")) return ciTag.removePrefix("v")
+    val tag = runCatching {
+        val process = ProcessBuilder("git", "describe", "--tags", "--match", "v*", "--abbrev=0")
+            .redirectErrorStream(true)
+            .start()
+        val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
+        process.waitFor()
+        output
+    }.getOrDefault("")
+    return if (tag.startsWith("v")) tag.removePrefix("v") else "1.0.0"
+}
+
+// 语义化 tag（vX.Y.Z 或 vX.Y.Z-beta.N）→ 单调递增的 versionCode。
+fun versionCodeFrom(name: String): Int {
+    val numbers = name.substringBefore('-').removePrefix("v").split('.')
+        .map { it.toIntOrNull() ?: 0 }
+    val major = numbers.getOrElse(0) { 0 }
+    val minor = numbers.getOrElse(1) { 0 }
+    val patch = numbers.getOrElse(2) { 0 }
+    return (major * 10_000 + minor * 100 + patch).coerceAtLeast(1)
+}
+
+val appVersionName = versionNameFromTag()
+val appVersionCode = versionCodeFrom(appVersionName)
+
 android {
     namespace = "com.hz6826.xjtunetlogin"
     compileSdk {
@@ -23,8 +51,8 @@ android {
         applicationId = "com.hz6826.xjtunetlogin"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
