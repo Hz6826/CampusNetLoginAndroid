@@ -38,6 +38,7 @@ fun SettingsPage(
     onOpenConnection: () -> Unit,
     onOpenKeepAlive: () -> Unit,
     onOpenAbout: () -> Unit,
+    onCheckUpdate: () -> Unit,
 ) {
     val context = LocalContext.current
     val darkModeValues = listOf("system", "light", "dark")
@@ -121,6 +122,27 @@ fun SettingsPage(
                 title = "关于",
                 summary = "版本 v$versionName",
                 onClick = onOpenAbout,
+            )
+        }
+
+        SmallTitle("更新")
+        SettingsCard {
+            SwitchPreference(
+                title = "自动检查更新",
+                summary = "启动应用时从 GitHub Releases 检查新版本",
+                checked = settings.autoCheckUpdate,
+                onCheckedChange = { onSettingsChange(settings.copy(autoCheckUpdate = it)) },
+            )
+            SwitchPreference(
+                title = "接收预览版",
+                summary = "检查时包含 beta 预发布版本",
+                checked = settings.previewUpdates,
+                onCheckedChange = { onSettingsChange(settings.copy(previewUpdates = it)) },
+            )
+            ArrowPreference(
+                title = "立即检查更新",
+                summary = "当前版本 v$versionName",
+                onClick = onCheckUpdate,
             )
         }
         Spacer(Modifier.height(16.dp + LocalBottomBarInset.current))

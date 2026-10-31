@@ -53,8 +53,9 @@ app/src/main/java/com/hz6826/xjtunetlogin/
   net/                     SrunClient, SrunCrypto, WifiTransport (protocol layer)
   session/                 SessionController state machine, SessionHolder singleton
   service/                 AutoLoginService (foreground keep-alive), BootReceiver
+  update/                  GitHub Releases update checker, APK download + SHA-256
   ui/theme/                AppTheme, palettes, status colors
-  ui/components/           shared composables (status card, settings rows)
+  ui/components/           shared composables (status card, settings rows, update dialog)
   ui/pages/                Login / Log / OnlineInfo / Settings / Connection /
                            KeepAlive / About / Contributors / References pages
   ui/nav/                  classic NavigationBar + LocalBottomBarInset

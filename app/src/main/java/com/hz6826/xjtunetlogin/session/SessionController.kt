@@ -104,8 +104,14 @@ class SessionController(context: Context) {
                     ready = true
                     state = state.copy(busy = false)
                     if (result.isFailure) publish("已保存账户读取失败，请重新输入并保存", level = "WARN")
-                    log("SUCCESS", "启动成功！欢迎来到仙交网络助手 by Hz6826")
-                    log("INFO", "项目地址: https://github.com/Hz6826/XJTUNetLogin")
+                    log("SUCCESS", "启动成功！欢迎来到仙交网络助手(XJTUNetLoginAndroid) by Hz6826")
+                    log("INFO", "当前版本: v${runCatching { app.packageManager.getPackageInfo(app.packageName, 0).versionName }.getOrNull().orEmpty()}")
+                    log("INFO", "项目地址: https://github.com/Hz6826/XJTUNetLoginAndroid")
+                    log(
+                        "INFO",
+                        "本项目以GPL-3.0开源，完全免费！如果你认为该软件帮助到了你，" +
+                            "麻烦在GitHub点个Star，或将软件分享给朋友，你的支持是我继续创作的动力~",
+                    )
                     loaded?.invoke()
                     emit()
                     if (active) networkChanged(force = true)
@@ -214,7 +220,10 @@ class SessionController(context: Context) {
                         authenticatedAccount = null
                     }
                     account = updated
-                    publish("设置已保存", level = "SUCCESS")
+                    settleStatus()
+                    val message = "设置已保存"
+                    log("SUCCESS", message)
+                    toastListener?.invoke(message)
                 }
             }
         }
@@ -364,6 +373,11 @@ class SessionController(context: Context) {
 
     fun setKeepAlive(enabled: Boolean) {
         keepAlive = enabled
+    }
+
+    /** 供更新检查等外部流程写入运行记录。 */
+    fun recordLog(level: String, message: String) {
+        log(level, message)
     }
 
     /** 保活/自动登录是否可用：登录成功过且当前记住了账户。 */

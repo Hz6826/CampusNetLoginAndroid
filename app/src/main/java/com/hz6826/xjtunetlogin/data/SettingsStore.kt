@@ -14,6 +14,10 @@ data class AppSettings(
     val glassBar: Boolean = false,
     val logHttp: Boolean = false,
     val keepAlive: Boolean = false,
+    val autoCheckUpdate: Boolean = true,
+    val previewUpdates: Boolean = false,
+    val ignoredUpdateVersion: String? = null,
+    val lastUpdateCheck: Long = 0L,
 )
 
 /** [seed] 为 null 表示使用 Miuix 原生默认蓝色配色（不是种子生成的）。 */
@@ -57,6 +61,10 @@ class SettingsStore(context: Context) {
             glassBar = prefs.getBoolean("glassBar", false),
             logHttp = prefs.getBoolean("logHttp", false),
             keepAlive = prefs.getBoolean("keepAlive", false),
+            autoCheckUpdate = prefs.getBoolean("autoCheckUpdate", true),
+            previewUpdates = prefs.getBoolean("previewUpdates", false),
+            ignoredUpdateVersion = prefs.getString("ignoredUpdateVersion", null),
+            lastUpdateCheck = prefs.getLong("lastUpdateCheck", 0L),
         )
     }
 
@@ -75,6 +83,10 @@ class SettingsStore(context: Context) {
             .putBoolean("glassBar", settings.glassBar)
             .putBoolean("logHttp", settings.logHttp)
             .putBoolean("keepAlive", settings.keepAlive)
+            .putBoolean("autoCheckUpdate", settings.autoCheckUpdate)
+            .putBoolean("previewUpdates", settings.previewUpdates)
+            .putString("ignoredUpdateVersion", settings.ignoredUpdateVersion)
+            .putLong("lastUpdateCheck", settings.lastUpdateCheck)
             .apply()
     }
 }

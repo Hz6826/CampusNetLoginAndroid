@@ -6,6 +6,7 @@ import android.net.wifi.WifiManager
 import android.net.wifi.WifiNetworkSuggestion
 import android.os.Build
 import android.os.Bundle
+import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -37,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -45,14 +47,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.hz6826.xjtunetlogin.data.AppSettings
 import com.hz6826.xjtunetlogin.data.SettingsStore
+import com.hz6826.xjtunetlogin.update.UpdateChecker
+import com.hz6826.xjtunetlogin.update.UpdateRelease
 import com.hz6826.xjtunetlogin.service.AutoLoginService
 import com.hz6826.xjtunetlogin.session.SessionController
 import com.hz6826.xjtunetlogin.session.SessionHolder
+import com.hz6826.xjtunetlogin.ui.components.UpdateDialog
 import com.hz6826.xjtunetlogin.ui.glass.GlassBottomTabs
 import com.hz6826.xjtunetlogin.ui.glass.GlassTab
 import com.hz6826.xjtunetlogin.ui.glass.LocalIsDarkTheme
@@ -74,6 +80,9 @@ import com.hz6826.xjtunetlogin.ui.theme.AppTheme
 import com.hz6826.xjtunetlogin.ui.theme.isDarkTheme
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -110,7 +119,12 @@ class MainActivity : ComponentActivity() {
 }
 
 private val settingsSaver = listSaver<AppSettings, Any>(
-    save = { listOf(it.darkMode, it.dynamicColor, it.seedColor ?: 0, it.glassBar, it.logHttp, it.keepAlive) },
+    save = {
+        listOf(
+            it.darkMode, it.dynamicColor, it.seedColor ?: 0, it.glassBar, it.logHttp, it.keepAlive,
+            it.autoCheckUpdate, it.previewUpdates, it.ignoredUpdateVersion ?: "", it.lastUpdateCheck,
+        )
+    },
     restore = {
         AppSettings(
             darkMode = it[0] as String,
@@ -119,6 +133,10 @@ private val settingsSaver = listSaver<AppSettings, Any>(
             glassBar = it[3] as Boolean,
             logHttp = it[4] as Boolean,
             keepAlive = it[5] as Boolean,
+            autoCheckUpdate = it[6] as Boolean,
+            previewUpdates = it[7] as Boolean,
+            ignoredUpdateVersion = (it[8] as String).takeIf { v -> v.isNotEmpty() },
+            lastUpdateCheck = it[9] as Long,
         )
     },
 )
@@ -136,6 +154,9 @@ private fun App(
     var draft by rememberSaveable(stateSaver = draftSaver) { mutableStateOf(Draft()) }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var secondaryPage by rememberSaveable { mutableStateOf<String?>(null) }
+    var updateRelease by remember { mutableStateOf<UpdateRelease?>(null) }
+    var updateBusy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     fun applyLoaded() {
         if (!draft.loaded) {
@@ -151,6 +172,71 @@ private fun App(
         }
         state = controller.state
         logsState.value = controller.logs
+    }
+
+    fun checkForUpdate(auto: Boolean) {
+        scope.launch {
+            controller.recordLog("STEP", "→ 检查新版本")
+            val result = runCatching {
+                withContext(Dispatchers.IO) { UpdateChecker.check(context, settings.previewUpdates) }
+            }
+            result.onSuccess { release ->
+                if (release == null) {
+                    controller.recordLog("INFO", "已是最新版本")
+                    if (!auto) Toast.makeText(context, "已是最新版本", Toast.LENGTH_SHORT).show()
+                } else {
+                    controller.recordLog("SUCCESS", "发现新版本: ${release.tag}")
+                    if (!auto || settings.ignoredUpdateVersion != release.tag) updateRelease = release
+                }
+            }.onFailure {
+                controller.recordLog("WARN", "版本检查失败: ${it.message.orEmpty()}")
+                if (!auto) {
+                    Toast.makeText(context, "版本检查失败：${it.message.orEmpty()}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    fun installUpdate(release: UpdateRelease) {
+        updateBusy = true
+        scope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) { UpdateChecker.download(context, release) }
+            }
+            updateBusy = false
+            result.onSuccess { file ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                    !context.packageManager.canRequestPackageInstalls()
+                ) {
+                    Toast.makeText(context, "请允许「安装未知应用」后重试", Toast.LENGTH_LONG).show()
+                    context.startActivity(
+                        Intent(
+                            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                            Uri.parse("package:${context.packageName}"),
+                        ),
+                    )
+                } else {
+                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(uri, "application/vnd.android.package-archive")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                        },
+                    )
+                }
+            }.onFailure {
+                Toast.makeText(context, "更新失败：${it.message.orEmpty()}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    // 启动时自动检查更新：默认开启，同一天内不重复请求，避免打满匿名 API 限额。
+    LaunchedEffect(settings.autoCheckUpdate) {
+        if (!settings.autoCheckUpdate) return@LaunchedEffect
+        val now = System.currentTimeMillis()
+        if (now - settings.lastUpdateCheck < 24L * 60 * 60 * 1000) return@LaunchedEffect
+        onSettingsChange(settings.copy(lastUpdateCheck = now))
+        checkForUpdate(auto = true)
     }
 
     SideEffect {
@@ -348,10 +434,23 @@ private fun App(
                                 onOpenConnection = { secondaryPage = "connection" },
                                 onOpenKeepAlive = { secondaryPage = "keepalive" },
                                 onOpenAbout = { secondaryPage = "about" },
+                                onCheckUpdate = { checkForUpdate(auto = false) },
                             )
                         }
                     }
                 }
+            }
+            updateRelease?.let { release ->
+                UpdateDialog(
+                    release = release,
+                    busy = updateBusy,
+                    onInstall = { installUpdate(release) },
+                    onLater = { updateRelease = null },
+                    onIgnore = {
+                        onSettingsChange(settings.copy(ignoredUpdateVersion = release.tag))
+                        updateRelease = null
+                    },
+                )
             }
             if (glass) {
                 val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()

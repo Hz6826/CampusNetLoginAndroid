@@ -52,10 +52,14 @@
 | 深色模式 / 主题色  | :white_check_mark: |
 | 液态玻璃底栏      | :white_check_mark: |
 | 记录 HTTP 日志  | :white_check_mark: |
+| 自动检查更新      | :white_check_mark: |
+| SHA-256 校验更新包 | :white_check_mark: |
 | 托盘最小化等桌面特性  | :x:                 |
 | 多平台（Windows/macOS/Linux） | :x: ^1             |
 
 ^1: 桌面版（Windows/macOS/Linux）：[XJTUNetLogin](https://github.com/Hz6826/XJTUNetLogin)。
+
+应用内更新通过 GitHub Releases 的匿名 API 检查，默认在启动时静默检查（每天最多一次），可在「设置 → 更新」中开启预览版或手动检查。下载 APK 后会先按 API 提供的 SHA-256 校验，再交给系统安装器；首次安装需要允许「安装未知应用」权限。
 
 ## 使用
 
