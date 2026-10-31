@@ -116,3 +116,17 @@ jobs:
 
             - `beta` 标签：构建 debug 签名 APK，并作为 prerelease 发布，仅供测试。
             - 正式标签：构建 release 签名 APK。
+
+      - name: Bump versionCode on main
+        run: |
+          set -e
+          git fetch origin main
+          git checkout -B main origin/main
+          CURRENT=$(sed -n 's/^versionCode=//p' version.properties | head -n 1)
+          NEXT=$((CURRENT + 1))
+          sed -i "s/^versionCode=.*/versionCode=$NEXT/" version.properties
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add version.properties
+          git commit -m "chore(release): bump versionCode to $NEXT [skip ci]"
+          git push origin main

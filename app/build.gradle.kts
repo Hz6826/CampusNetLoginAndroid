@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -13,7 +15,8 @@ val hasReleaseSigning = !releaseKeystorePath.isNullOrBlank() &&
     !releaseKeyAlias.isNullOrBlank() &&
     !releaseKeyPassword.isNullOrBlank()
 
-// 版本号从 git tag 读取：CI 用 GITHUB_REF_NAME，本地回退到最近的 v* tag；都没有时用 1.0.0。
+// versionCode 由仓库根目录 version.properties 维护（CI 发版后由 GitHub Actions 自动 +1），
+// versionName 仍从 git tag 读取：CI 用 GITHUB_REF_NAME，本地回退到最近的 v* tag。
 fun versionNameFromTag(): String {
     val ciTag = System.getenv("GITHUB_REF_NAME")
     if (!ciTag.isNullOrBlank() && ciTag.startsWith("v")) return ciTag.removePrefix("v")
@@ -28,18 +31,17 @@ fun versionNameFromTag(): String {
     return if (tag.startsWith("v")) tag.removePrefix("v") else "1.0.0"
 }
 
-// 语义化 tag（vX.Y.Z 或 vX.Y.Z-beta.N）→ 单调递增的 versionCode。
-fun versionCodeFrom(name: String): Int {
-    val numbers = name.substringBefore('-').removePrefix("v").split('.')
-        .map { it.toIntOrNull() ?: 0 }
-    val major = numbers.getOrElse(0) { 0 }
-    val minor = numbers.getOrElse(1) { 0 }
-    val patch = numbers.getOrElse(2) { 0 }
-    return (major * 10_000 + minor * 100 + patch).coerceAtLeast(1)
+fun versionCodeFromFile(): Int {
+    val file = rootProject.file("version.properties")
+    return runCatching {
+        val properties = Properties()
+        file.inputStream().use { properties.load(it) }
+        properties.getProperty("versionCode")?.trim()?.toIntOrNull()
+    }.getOrNull()?.takeIf { it > 0 } ?: 1
 }
 
 val appVersionName = versionNameFromTag()
-val appVersionCode = versionCodeFrom(appVersionName)
+val appVersionCode = versionCodeFromFile()
 
 android {
     namespace = "com.hz6826.xjtunetlogin"
