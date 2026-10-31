@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
 
       - name: Detect beta tag
         id: tag
@@ -120,6 +122,7 @@ jobs:
       - name: Bump versionCode on main
         run: |
           set -e
+          git remote set-url origin git@github.com:Hz6826/XJTUNetLoginAndroid.git
           git fetch origin main
           git checkout -B main origin/main
           CURRENT=$(sed -n 's/^versionCode=//p' version.properties | head -n 1)
