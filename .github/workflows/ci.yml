@@ -32,16 +32,24 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Locate Android SDK
+        run: |
+          set -e
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -name sdkmanager -type f | head -n 1)"
+          test -n "$SDKMANAGER"
+          echo "SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
 
       - name: Install SDK packages
         run: |
           set -e
-          yes | sdkmanager --licenses > /dev/null || true
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
           # compileSdk 37 可能还在预览通道，稳定通道失败时回退到预览通道。
           install_sdk() {
-            sdkmanager "$@" || sdkmanager --channel=3 "$@"
+            "$SDKMANAGER" "$@" || "$SDKMANAGER" --channel=3 "$@"
           }
           install_sdk "platform-tools" "platforms;android-37" "build-tools;37.0.0"
 
