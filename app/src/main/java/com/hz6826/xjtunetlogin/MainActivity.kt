@@ -1,5 +1,6 @@
 package com.hz6826.xjtunetlogin
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.net.wifi.WifiManager
@@ -11,8 +12,10 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -21,6 +24,10 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -29,6 +36,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -53,12 +61,16 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.hz6826.xjtunetlogin.data.AppSettings
 import com.hz6826.xjtunetlogin.data.SettingsStore
+import com.hz6826.xjtunetlogin.data.currentWifiSsid
+import com.hz6826.xjtunetlogin.data.hasSsidPermission
+import com.hz6826.xjtunetlogin.data.normalizeSsid
 import com.hz6826.xjtunetlogin.update.UpdateChecker
 import com.hz6826.xjtunetlogin.update.UpdateRelease
 import com.hz6826.xjtunetlogin.service.AutoLoginService
 import com.hz6826.xjtunetlogin.session.SessionController
 import com.hz6826.xjtunetlogin.session.SessionHolder
 import com.hz6826.xjtunetlogin.ui.components.UpdateDialog
+import com.hz6826.xjtunetlogin.ui.pages.ExcludedSsidsPage
 import com.hz6826.xjtunetlogin.ui.glass.GlassBottomTabs
 import com.hz6826.xjtunetlogin.ui.glass.GlassTab
 import com.hz6826.xjtunetlogin.ui.glass.LocalIsDarkTheme
@@ -85,13 +97,20 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.window.WindowBottomSheet
+import top.yukonga.miuix.kmp.window.WindowDialog
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -123,6 +142,7 @@ private val settingsSaver = listSaver<AppSettings, Any>(
         listOf(
             it.darkMode, it.dynamicColor, it.seedColor ?: 0, it.glassBar, it.logHttp, it.keepAlive,
             it.autoCheckUpdate, it.previewUpdates, it.ignoredUpdateVersion ?: "", it.lastUpdateCheck,
+            it.excludedSsids.toList(),
         )
     },
     restore = {
@@ -137,6 +157,7 @@ private val settingsSaver = listSaver<AppSettings, Any>(
             previewUpdates = it[7] as Boolean,
             ignoredUpdateVersion = (it[8] as String).takeIf { v -> v.isNotEmpty() },
             lastUpdateCheck = it[9] as Long,
+            excludedSsids = (it[10] as List<*>).filterIsInstance<String>().toSet(),
         )
     },
 )
@@ -156,7 +177,31 @@ private fun App(
     var secondaryPage by rememberSaveable { mutableStateOf<String?>(null) }
     var updateRelease by remember { mutableStateOf<UpdateRelease?>(null) }
     var updateBusy by remember { mutableStateOf(false) }
+    var showAddExcluded by remember { mutableStateOf(false) }
+    var showClearExcluded by remember { mutableStateOf(false) }
+    var newExcludedSsid by remember { mutableStateOf("") }
+    var excludeSheetVisible by remember { mutableStateOf(false) }
+    var excludeSheetSsid by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val ssidPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            excludeSheetSsid = currentWifiSsid(context)
+            excludeSheetVisible = true
+        } else {
+            Toast.makeText(context, "需要定位权限才能读取当前 Wi-Fi 名称", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    fun requestExcludeCurrentNetwork() {
+        if (!hasSsidPermission(context)) {
+            ssidPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        } else {
+            excludeSheetSsid = currentWifiSsid(context)
+            excludeSheetVisible = true
+        }
+    }
 
     fun applyLoaded() {
         if (!draft.loaded) {
@@ -242,6 +287,7 @@ private fun App(
     SideEffect {
         controller.setLogHttp(settings.logHttp)
         controller.setKeepAlive(settings.keepAlive)
+        controller.setExcludedSsids(settings.excludedSsids)
     }
 
     // 只有登录成功过并记住了账户时，保活/自动登录才可用。
@@ -317,7 +363,7 @@ private fun App(
     val dark = isDarkTheme(settings)
     val glass = settings.glassBar && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val backdrop = rememberLayerBackdrop()
-    val pageTitles = listOf("登录状态", "运行记录", "在线信息", "设置")
+    val pageTitles = listOf("仙交网络助手", "运行日志", "在线信息", "设置")
 
     // 二级页切换时两层内容会同时平移，缝隙里必须有不透明底色，否则会闪出窗口白底。
     Box(Modifier.fillMaxSize().background(MiuixTheme.colorScheme.surface)) {
@@ -347,7 +393,8 @@ private fun App(
         val titles = mapOf(
             "about" to "关于",
             "connection" to "连接设置",
-            "keepalive" to "保活配置",
+            "keepalive" to "保活设置",
+            "excluded" to "排除列表",
             "contributors" to "贡献者",
             "references" to "参考项目及许可",
         )
@@ -362,6 +409,28 @@ private fun App(
                                 contentDescription = "返回",
                                 modifier = Modifier.size(24.dp),
                             )
+                        }
+                    },
+                    actions = {
+                        if (page == "excluded") {
+                            IconButton(
+                                onClick = { if (settings.excludedSsids.isNotEmpty()) showClearExcluded = true },
+                                enabled = settings.excludedSsids.isNotEmpty(),
+                            ) {
+                                Icon(
+                                    imageVector = MiuixIcons.Delete,
+                                    contentDescription = "清除排除列表",
+                                    modifier = Modifier.size(22.dp),
+                                    tint = MiuixTheme.colorScheme.error,
+                                )
+                            }
+                            IconButton(onClick = { newExcludedSsid = ""; showAddExcluded = true }) {
+                                Icon(
+                                    imageVector = MiuixIcons.Add,
+                                    contentDescription = "添加排除的 Wi-Fi",
+                                    modifier = Modifier.size(24.dp),
+                                )
+                            }
                         }
                     },
                 )
@@ -382,11 +451,86 @@ private fun App(
                         onSuggestWifi = { suggestCampusWifi(context) },
                     )
                     "keepalive" -> KeepAlivePage(settings = settings, onSettingsChange = onSettingsChange, available = keepAliveAvailable)
+                    "excluded" -> ExcludedSsidsPage(
+                        excluded = settings.excludedSsids.sorted(),
+                        onRemove = { ssid ->
+                            onSettingsChange(settings.copy(excludedSsids = settings.excludedSsids - ssid))
+                        },
+                        onRestore = { ssid ->
+                            onSettingsChange(settings.copy(excludedSsids = settings.excludedSsids + ssid))
+                        },
+                    )
                     "contributors" -> ContributorsPage()
                     "references" -> ReferencesPage()
                     else -> AboutPage(
                         onOpenContributors = { secondaryPage = "contributors" },
                         onOpenReferences = { secondaryPage = "references" },
+                    )
+                }
+            }
+        }
+        if (page == "excluded") {
+            WindowDialog(
+                show = showAddExcluded,
+                title = "添加排除的 Wi-Fi",
+                summary = "输入 Wi-Fi 名称（SSID），该网络不会被视为校园网，也不会自动登录。",
+                onDismissRequest = { showAddExcluded = false; newExcludedSsid = "" },
+                onDismissFinished = { newExcludedSsid = "" },
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    TextField(
+                        value = newExcludedSsid,
+                        onValueChange = { newExcludedSsid = it },
+                        label = "Wi-Fi 名称",
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        TextButton(
+                            text = "取消",
+                            onClick = { showAddExcluded = false; newExcludedSsid = "" },
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        TextButton(
+                            text = "添加",
+                            onClick = {
+                                val ssid = normalizeSsid(newExcludedSsid)
+                                if (ssid.isNotBlank()) {
+                                    onSettingsChange(settings.copy(excludedSsids = settings.excludedSsids + ssid))
+                                }
+                                showAddExcluded = false
+                                newExcludedSsid = ""
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.textButtonColorsPrimary(),
+                        )
+                    }
+                }
+            }
+            WindowDialog(
+                show = showClearExcluded,
+                title = "清除排除列表？",
+                summary = "将移除全部已排除的 Wi-Fi，清除后这些网络会重新被当作校园网检测。",
+                onDismissRequest = { showClearExcluded = false },
+                onDismissFinished = {},
+            ) {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    TextButton(
+                        text = "取消",
+                        onClick = { showClearExcluded = false },
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    TextButton(
+                        text = "清除",
+                        onClick = {
+                            onSettingsChange(settings.copy(excludedSsids = emptySet()))
+                            showClearExcluded = false
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.textButtonColorsPrimary(),
                     )
                 }
             }
@@ -420,19 +564,28 @@ private fun App(
                         label = "tabContent",
                     ) { tab ->
                         when (tab) {
-                            0 -> LoginPage(controller, state, draft, onDraftChange = { draft = it })
+                            0 -> LoginPage(
+                                controller = controller,
+                                state = state,
+                                draft = draft,
+                                onOpenKeepAlive = { selectedTab = 0; secondaryPage = "keepalive" },
+                                onOpenConnection = { selectedTab = 0; secondaryPage = "connection" },
+                                onRequestExclude = { requestExcludeCurrentNetwork() },
+                                onDraftChange = { draft = it },
+                            )
                             1 -> LogPage(
                                 controller = controller,
                                 logsState = logsState,
                                 logHttp = settings.logHttp,
                                 onLogHttpChange = { onSettingsChange(settings.copy(logHttp = it)) },
                             )
-                            2 -> OnlineInfoPage(controller, state)
+                            2 -> OnlineInfoPage(controller, state, onRequestExclude = { requestExcludeCurrentNetwork() })
                             else -> SettingsPage(
                                 settings = settings,
                                 onSettingsChange = onSettingsChange,
                                 onOpenConnection = { secondaryPage = "connection" },
                                 onOpenKeepAlive = { secondaryPage = "keepalive" },
+                                onOpenExcluded = { secondaryPage = "excluded" },
                                 onOpenAbout = { secondaryPage = "about" },
                                 onCheckUpdate = { checkForUpdate(auto = false) },
                             )
@@ -451,6 +604,48 @@ private fun App(
                         updateRelease = null
                     },
                 )
+            }
+            WindowBottomSheet(
+                show = excludeSheetVisible,
+                title = "将${excludeSheetSsid ?: "当前 Wi-Fi"}加入排除列表？",
+                onDismissRequest = { excludeSheetVisible = false },
+                onDismissFinished = { excludeSheetVisible = false },
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+                    Text(
+                        text = "宿舍网等网络有时也能访问到内网认证服务器，如果你确定这不是校园网，可点击确认将该 Wi-Fi 加入排除列表。",
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onBackgroundVariant,
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        TextButton(
+                            text = "取消",
+                            onClick = { excludeSheetVisible = false },
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        TextButton(
+                            text = "确认",
+                            onClick = {
+                                val ssid = excludeSheetSsid
+                                if (ssid != null) {
+                                    onSettingsChange(settings.copy(excludedSsids = settings.excludedSsids + ssid))
+                                    Toast.makeText(context, "已将 $ssid 加入排除列表", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "无法读取当前 Wi-Fi 名称，请到「设置 → 连接 → 排除列表」手动添加",
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                                }
+                                excludeSheetVisible = false
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.textButtonColorsPrimary(),
+                        )
+                    }
+                }
             }
             if (glass) {
                 val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()

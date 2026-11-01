@@ -26,11 +26,11 @@ import java.util.Locale
 
 /** 在线信息页：顶部与登录页相同的状态卡，标题在顶栏，信息靠上。 */
 @Composable
-fun OnlineInfoPage(controller: SessionController, state: SessionState) {
+fun OnlineInfoPage(controller: SessionController, state: SessionState, onRequestExclude: () -> Unit) {
     val info = state.online
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Spacer(Modifier.height(8.dp))
-        InternetCheckStatusCard(controller = controller, state = state)
+        InternetCheckStatusCard(controller = controller, state = state, onRequestExclude = onRequestExclude)
         Column(
             modifier = Modifier
                 .fillMaxWidth()

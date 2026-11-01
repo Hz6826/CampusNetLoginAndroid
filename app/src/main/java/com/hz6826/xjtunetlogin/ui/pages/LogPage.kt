@@ -49,7 +49,7 @@ fun LogPage(
     val logs by logsState
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("运行记录", style = MiuixTheme.textStyles.title3, modifier = Modifier.weight(1f))
+            Text("运行日志", style = MiuixTheme.textStyles.title3, modifier = Modifier.weight(1f))
             Checkbox(
                 state = if (logHttp) ToggleableState.On else ToggleableState.Off,
                 onClick = { onLogHttpChange(!logHttp) },

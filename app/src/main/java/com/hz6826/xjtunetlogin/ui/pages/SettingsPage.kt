@@ -37,6 +37,7 @@ fun SettingsPage(
     onSettingsChange: (AppSettings) -> Unit,
     onOpenConnection: () -> Unit,
     onOpenKeepAlive: () -> Unit,
+    onOpenExcluded: () -> Unit,
     onOpenAbout: () -> Unit,
     onCheckUpdate: () -> Unit,
 ) {
@@ -105,14 +106,19 @@ fun SettingsPage(
         SmallTitle("连接")
         SettingsCard {
             ArrowPreference(
+                title = "保活设置",
+                summary = "前台常驻通知、开机自启与省电策略",
+                onClick = onOpenKeepAlive,
+            )
+            ArrowPreference(
                 title = "连接设置",
                 summary = "账户域、AC ID、认证地址与校园 Wi-Fi",
                 onClick = onOpenConnection,
             )
             ArrowPreference(
-                title = "保活配置",
-                summary = "前台常驻通知、开机自启与省电策略",
-                onClick = onOpenKeepAlive,
+                title = "排除列表",
+                summary = if (settings.excludedSsids.isEmpty()) "不自动登录、也不当作校园网的 Wi-Fi" else "已排除 ${settings.excludedSsids.size} 个 Wi-Fi",
+                onClick = onOpenExcluded,
             )
         }
 

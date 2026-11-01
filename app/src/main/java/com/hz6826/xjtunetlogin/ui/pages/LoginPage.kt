@@ -25,6 +25,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.hz6826.xjtunetlogin.model.CampusState
 import com.hz6826.xjtunetlogin.model.SessionState
 import com.hz6826.xjtunetlogin.session.SessionController
 import com.hz6826.xjtunetlogin.ui.components.InternetCheckStatusCard
@@ -46,6 +47,9 @@ fun LoginPage(
     controller: SessionController,
     state: SessionState,
     draft: Draft,
+    onOpenKeepAlive: () -> Unit,
+    onOpenConnection: () -> Unit,
+    onRequestExclude: () -> Unit,
     onDraftChange: (Draft) -> Unit,
 ) {
     val online = state.online
@@ -58,7 +62,7 @@ fun LoginPage(
         modifier = Modifier.fillMaxSize().imePadding().padding(horizontal = 16.dp),
     ) {
         Spacer(Modifier.height(8.dp))
-        InternetCheckStatusCard(controller = controller, state = state)
+        InternetCheckStatusCard(controller = controller, state = state, onRequestExclude = onRequestExclude)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -137,7 +141,7 @@ fun LoginPage(
                         }
                     },
                     modifier = Modifier.fillMaxWidth().testTag("auth"),
-                    enabled = !busy,
+                    enabled = !busy && !(online == null && state.campus == CampusState.OffCampus),
                     colors = if (online == null) {
                         ButtonDefaults.buttonColorsPrimary()
                     } else {
@@ -148,17 +152,28 @@ fun LoginPage(
                         )
                     },
                 ) { Text(if (online != null) "注销当前连接" else "登录校园网") }
-                Spacer(Modifier.height(4.dp))
-                // 纯文字入口：不用 Button，避免 busy 时按钮底色/按压态变化穿帮。
-                Text(
-                    text = "保存账户",
-                    style = MiuixTheme.textStyles.body1,
-                    color = MiuixTheme.colorScheme.onBackgroundVariant,
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .clickable(enabled = !busy) { controller.save(accountOf(draft)) }
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                )
+                Spacer(Modifier.height(8.dp))
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = "保活设置",
+                        style = MiuixTheme.textStyles.body1,
+                        color = MiuixTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .clickable { onOpenKeepAlive() }
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                    Text(
+                        text = "连接设置",
+                        style = MiuixTheme.textStyles.body1,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier
+                            .clickable { onOpenConnection() }
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
             }
             Spacer(Modifier.height(LocalBottomBarInset.current))
         }

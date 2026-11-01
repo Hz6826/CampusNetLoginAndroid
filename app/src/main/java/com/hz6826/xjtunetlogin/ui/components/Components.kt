@@ -1,6 +1,7 @@
 package com.hz6826.xjtunetlogin.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -112,6 +113,7 @@ fun SettingsField(
 fun StatusCard(
     state: SessionState,
     onRefreshAndCheck: () -> Unit,
+    onRequestExclude: (() -> Unit)? = null,
 ) {
     val badgeText: String
     val badgeColor: Color
@@ -137,10 +139,25 @@ fun StatusCard(
             Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
                 Text(state.status, style = MiuixTheme.textStyles.title3)
                 Spacer(Modifier.size(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Box(Modifier.size(8.dp).background(badgeColor, CircleShape))
                     Spacer(Modifier.width(6.dp))
                     Text(badgeText, style = MiuixTheme.textStyles.body2, color = badgeColor)
+                    if (state.loginFailed && state.online == null && state.campus == CampusState.OnCampus &&
+                        onRequestExclude != null
+                    ) {
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            text = "这不是校园网？加入排除列表…",
+                            style = MiuixTheme.textStyles.footnote2,
+                            color = MiuixTheme.colorScheme.primary,
+                            maxLines = 1,
+                            modifier = Modifier.clickable(onClick = onRequestExclude),
+                        )
+                    }
                 }
             }
             IconButton(
@@ -162,10 +179,15 @@ fun StatusCard(
 
 /** 状态卡 + 刷新/外网检测的 Toast 反馈，登录页和在线信息页共用。 */
 @Composable
-fun InternetCheckStatusCard(controller: SessionController, state: SessionState) {
+fun InternetCheckStatusCard(
+    controller: SessionController,
+    state: SessionState,
+    onRequestExclude: (() -> Unit)? = null,
+) {
     val context = LocalContext.current
     StatusCard(
         state = state,
+        onRequestExclude = onRequestExclude,
         onRefreshAndCheck = {
             controller.refreshAndCheckInternet { reachable ->
                 Toast.makeText(

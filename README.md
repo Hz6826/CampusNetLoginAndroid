@@ -34,6 +34,7 @@
 > **安全说明**
 > - 账户密码只在 Android Keystore 中保存密钥，磁盘上只有密文；关闭「记住账户」会立即删除已保存的账户。
 > - 运行记录默认不记录 HTTP 请求；开启「记录 HTTP 日志」后只记录方法与路径，不记录参数、密码或 token，请勿随意分享包含账号信息的截图。
+> - 「排除列表」在 Android 8.1 及以上需要定位权限才能读取当前 Wi-Fi 名称，仅用于获取 SSID，不采集或上传位置信息。
 
 ## 功能列表
 
@@ -52,6 +53,7 @@
 | 深色模式 / 主题色  | :white_check_mark: |
 | 液态玻璃底栏      | :white_check_mark: |
 | 记录 HTTP 日志  | :white_check_mark: |
+| Wi-Fi 排除列表  | :white_check_mark: |
 | 自动检查更新      | :white_check_mark: |
 | SHA-256 校验更新包 | :white_check_mark: |
 | 托盘最小化等桌面特性  | :x:                 |

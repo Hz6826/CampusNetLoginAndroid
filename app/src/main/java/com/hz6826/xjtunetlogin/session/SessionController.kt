@@ -10,6 +10,7 @@ import android.os.Handler
 import android.os.Looper
 import com.hz6826.xjtunetlogin.data.AccountStore
 import com.hz6826.xjtunetlogin.data.SettingsStore
+import com.hz6826.xjtunetlogin.data.currentWifiSsid
 import com.hz6826.xjtunetlogin.model.Account
 import com.hz6826.xjtunetlogin.model.CampusState
 import com.hz6826.xjtunetlogin.model.LogEntry
@@ -50,6 +51,9 @@ class SessionController(context: Context) {
         private set
     /** 「前台保活与自动登录」开关（设置里的 keepAlive），控制是否自动登录。 */
     var keepAlive = false
+        private set
+    /** 排除列表：这些 Wi-Fi 不视为校园网，不自动登录。 */
+    var excludedSsids: Set<String> = emptySet()
         private set
     private var active = false
     private var uiActive = false
@@ -96,6 +100,7 @@ class SessionController(context: Context) {
         val savedSettings = settingsStore.load()
         logHttp = savedSettings.logHttp
         keepAlive = savedSettings.keepAlive
+        excludedSsids = savedSettings.excludedSsids
         executor.execute {
             val result = runCatching { accountStore.load() }
             main.post {
@@ -170,12 +175,19 @@ class SessionController(context: Context) {
             state = state.copy(
                 online = null,
                 campus = if (network == null) CampusState.OffCampus else CampusState.Unknown,
+                loginFailed = false,
             )
             publish(
                 if (network == null) "请先连接校园 Wi-Fi" else "Wi-Fi 已连接，正在查询…",
                 level = if (network == null) "WARN" else "INFO",
             )
         } else if (!force) return
+        if (network != null && isCurrentNetworkExcluded()) {
+            state = state.copy(campus = CampusState.OffCampus, online = null, loginFailed = false)
+            settleStatus()
+            if (force) publish("当前 Wi-Fi 已在排除列表，不自动登录", log = false, level = "INFO")
+            return
+        }
         if (network == null) {
             if (state.campus != CampusState.OffCampus || state.online != null) {
                 state = state.copy(campus = CampusState.OffCampus, online = null)
@@ -239,7 +251,21 @@ class SessionController(context: Context) {
             return
         }
         manualLogout = false
-        runTask("开始登录…", baseOverride = updated.baseUrl, silent = automatic) { client, network, _ ->
+        runTask(
+            label = "开始登录…",
+            baseOverride = updated.baseUrl,
+            silent = automatic,
+            onFailure = { failedNetwork, error ->
+                if (error is IOException) {
+                    main.post {
+                        if (!closed && (failedNetwork == null || failedNetwork == currentNetwork)) {
+                            state = state.copy(loginFailed = true, campus = CampusState.OnCampus)
+                            emit()
+                        }
+                    }
+                }
+            },
+        ) { client, network, _ ->
             if (!automatic) {
                 accountStore.save(updated)
                 main.post {
@@ -256,7 +282,7 @@ class SessionController(context: Context) {
                     authenticatedAccount = updated
                     autoLoginAttempts = 0
                     accountStore.markLoggedIn()
-                    state = state.copy(online = OnlineInfo.from(result), campus = CampusState.OnCampus)
+                    state = state.copy(online = OnlineInfo.from(result), campus = CampusState.OnCampus, loginFailed = false)
                     publish("已连接校园网", level = "SUCCESS")
                 }
             }
@@ -286,6 +312,7 @@ class SessionController(context: Context) {
     fun refresh(automatic: Boolean = false) {
         if (!ready || state.busy || taskRunning) return
         if (automatic && (!active || currentNetwork == null)) return
+        if (automatic && isCurrentNetworkExcluded()) return
         // 非校园网环境下无需反复查询认证地址（避免每 30 秒一次无谓超时）。
         if (automatic && state.campus == CampusState.OffCampus) return
         val requestNetwork = currentNetwork
@@ -375,6 +402,23 @@ class SessionController(context: Context) {
         keepAlive = enabled
     }
 
+    fun setExcludedSsids(value: Set<String>) {
+        if (excludedSsids == value) return
+        excludedSsids = value
+        main.post {
+            if (!closed && active && isCurrentNetworkExcluded()) {
+                state = state.copy(campus = CampusState.OffCampus, online = null, loginFailed = false)
+                settleStatus()
+            }
+        }
+    }
+
+    private fun isCurrentNetworkExcluded(): Boolean {
+        if (currentNetwork == null) return false
+        val ssid = currentWifiSsid(app) ?: return false
+        return ssid in excludedSsids
+    }
+
     /** 供更新检查等外部流程写入运行记录。 */
     fun recordLog(level: String, message: String) {
         log(level, message)
@@ -392,6 +436,7 @@ class SessionController(context: Context) {
         baseOverride: String? = null,
         timeoutMs: Int = 8000,
         after: () -> Unit = {},
+        onFailure: ((Network?, Exception) -> Unit)? = null,
         task: (SrunClient?, Network?, WifiTransport?) -> Unit,
     ): Boolean {
         if (closed || state.busy || taskRunning) {
@@ -429,6 +474,7 @@ class SessionController(context: Context) {
                     // 不记录异常堆栈、原始响应或请求 URL，避免暴露认证参数。
                     main.post { if (!closed && (network == null || network == currentNetwork)) publish(message.take(200), level = "ERROR") }
                 }
+                main.post { if (!closed) onFailure?.invoke(network, e) }
             } finally {
                 main.post {
                     if (!closed) {
@@ -455,7 +501,8 @@ class SessionController(context: Context) {
     private fun applySnapshot(info: OnlineInfo?, campus: CampusState, silent: Boolean) {
         // 流量/时长每轮都会变，不能拿整个 OnlineInfo 判断“变化”，否则静默轮询会刷屏日志。
         val changed = (state.online != null) != (info != null) || state.campus != campus
-        state = state.copy(online = info, campus = campus)
+        val failed = if (info != null || campus == CampusState.OffCampus) false else state.loginFailed
+        state = state.copy(online = info, campus = campus, loginFailed = failed)
         if (silent) {
             if (changed) log(if (info != null) "SUCCESS" else "WARN", if (info != null) "已连接校园网" else "校园网未登录")
             // 静默刷新也要把「正在查询…」之类的过渡状态收敛成最终状态，否则会一直卡住。

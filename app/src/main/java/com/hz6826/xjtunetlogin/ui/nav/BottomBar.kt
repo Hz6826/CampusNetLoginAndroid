@@ -20,7 +20,7 @@ data class BottomTab(val label: String, val icon: ImageVector)
 
 val bottomTabs: List<BottomTab> = listOf(
     BottomTab("登录", MiuixIcons.Home),
-    BottomTab("记录", MiuixIcons.Recent),
+    BottomTab("日志", MiuixIcons.Recent),
     BottomTab("信息", MiuixIcons.Info),
     BottomTab("设置", MiuixIcons.Settings),
 )

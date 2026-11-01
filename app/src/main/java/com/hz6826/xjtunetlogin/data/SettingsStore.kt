@@ -18,6 +18,8 @@ data class AppSettings(
     val previewUpdates: Boolean = false,
     val ignoredUpdateVersion: String? = null,
     val lastUpdateCheck: Long = 0L,
+    /** 不视为校园网的 Wi-Fi 名称（排除列表）。 */
+    val excludedSsids: Set<String> = emptySet(),
 )
 
 /** [seed] 为 null 表示使用 Miuix 原生默认蓝色配色（不是种子生成的）。 */
@@ -25,15 +27,15 @@ data class ThemeColorPreset(val name: String, val seed: Int?)
 
 const val MIUIX_BLUE: Int = 0xFF3482FF.toInt()
 
-/** 主题色预设：第一项是默认的 Miuix 原生蓝，其余是校园风命名。 */
+/** 主题色预设：第一项是默认的 Miuix 原生蓝，其余是通用色名。 */
 val themeColorPresets: List<ThemeColorPreset> = listOf(
     ThemeColorPreset("Miuix 蓝（默认）", null),
-    ThemeColorPreset("仙交蓝", 0xFF3482FF.toInt()),
-    ThemeColorPreset("校园绿", 0xFF196653.toInt()),
-    ThemeColorPreset("梧桐橙", 0xFFFFA726.toInt()),
-    ThemeColorPreset("创新港青", 0xFF26A69A.toInt()),
-    ThemeColorPreset("梧桐紫", 0xFF7E57C2.toInt()),
-    ThemeColorPreset("交大红", 0xFFE94634.toInt()),
+    ThemeColorPreset("黛蓝", 0xFF3482FF.toInt()),
+    ThemeColorPreset("松绿", 0xFF196653.toInt()),
+    ThemeColorPreset("暖橙", 0xFFFFA726.toInt()),
+    ThemeColorPreset("青瓷", 0xFF26A69A.toInt()),
+    ThemeColorPreset("藤紫", 0xFF7E57C2.toInt()),
+    ThemeColorPreset("绯红", 0xFFE94634.toInt()),
 )
 
 class SettingsStore(context: Context) {
@@ -65,6 +67,7 @@ class SettingsStore(context: Context) {
             previewUpdates = prefs.getBoolean("previewUpdates", false),
             ignoredUpdateVersion = prefs.getString("ignoredUpdateVersion", null),
             lastUpdateCheck = prefs.getLong("lastUpdateCheck", 0L),
+            excludedSsids = prefs.getStringSet("excludedSsids", emptySet())?.toSet() ?: emptySet(),
         )
     }
 
@@ -87,6 +90,7 @@ class SettingsStore(context: Context) {
             .putBoolean("previewUpdates", settings.previewUpdates)
             .putString("ignoredUpdateVersion", settings.ignoredUpdateVersion)
             .putLong("lastUpdateCheck", settings.lastUpdateCheck)
+            .putStringSet("excludedSsids", settings.excludedSsids)
             .apply()
     }
 }
