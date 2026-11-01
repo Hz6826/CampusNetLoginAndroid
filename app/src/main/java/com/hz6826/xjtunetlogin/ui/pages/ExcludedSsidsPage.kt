@@ -1,6 +1,14 @@
 package com.hz6826.xjtunetlogin.ui.pages
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
@@ -47,12 +55,33 @@ fun ExcludedSsidsPage(
     onRemove: (String) -> Unit,
     onRestore: (String) -> Unit,
 ) {
+    // 本地展示列表：删除时先播放淡出/收起动画，动画完全结束后再真正从设置中移除。
+    var displayItems by remember { mutableStateOf(excluded) }
+    var removing by remember { mutableStateOf<Set<String>>(emptySet()) }
     var lastRemoved by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(excluded) {
+        val keep = displayItems.filter { it in excluded || it in removing }
+        val added = excluded.filter { it !in keep }
+        displayItems = keep + added
+    }
     LaunchedEffect(lastRemoved) {
         if (lastRemoved != null) {
             delay(4000)
             lastRemoved = null
         }
+    }
+
+    fun requestRemove(ssid: String) {
+        if (ssid in removing) return
+        removing = removing + ssid
+    }
+
+    fun finishRemove(ssid: String) {
+        onRemove(ssid)
+        displayItems = displayItems - ssid
+        removing = removing - ssid
+        lastRemoved = ssid
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -62,7 +91,7 @@ fun ExcludedSsidsPage(
                 .verticalScroll(rememberScrollState())
                 .padding(top = 8.dp),
         ) {
-            if (excluded.isEmpty()) {
+            if (displayItems.isEmpty() && removing.isEmpty()) {
                 Text(
                     text = "暂无已排除的 Wi-Fi",
                     style = MiuixTheme.textStyles.body1,
@@ -77,13 +106,12 @@ fun ExcludedSsidsPage(
                 )
             } else {
                 SettingsCard {
-                    excluded.forEach { ssid ->
-                        SwipeDeleteRow(
+                    displayItems.forEach { ssid ->
+                        AnimatedExcludedRow(
                             ssid = ssid,
-                            onDelete = {
-                                onRemove(ssid)
-                                lastRemoved = ssid
-                            },
+                            removing = ssid in removing,
+                            onDelete = { requestRemove(ssid) },
+                            onRemoved = { finishRemove(ssid) },
                         )
                     }
                 }
@@ -115,6 +143,7 @@ fun ExcludedSsidsPage(
                         color = MiuixTheme.colorScheme.primary,
                         modifier = Modifier.clickable {
                             onRestore(ssid)
+                            if (ssid !in displayItems) displayItems = displayItems + ssid
                             lastRemoved = null
                         },
                     )
@@ -125,38 +154,72 @@ fun ExcludedSsidsPage(
 }
 
 @Composable
+private fun AnimatedExcludedRow(
+    ssid: String,
+    removing: Boolean,
+    onDelete: () -> Unit,
+    onRemoved: () -> Unit,
+) {
+    val visibleState = remember(ssid) { MutableTransitionState(true) }
+    LaunchedEffect(removing) {
+        if (removing) visibleState.targetState = false
+    }
+    AnimatedVisibility(
+        visibleState = visibleState,
+        enter = fadeIn(tween(200)) + expandVertically(tween(250)),
+        exit = fadeOut(tween(200)) + shrinkVertically(tween(250)),
+        label = "excludedItem-$ssid",
+    ) {
+        SwipeDeleteRow(ssid = ssid, onDelete = onDelete)
+    }
+    // 等收起动画彻底结束再通知页面移除，避免条目的布局高度被瞬间抽走导致下方条目跳动。
+    LaunchedEffect(visibleState.isIdle, visibleState.currentState) {
+        if (visibleState.isIdle && !visibleState.currentState) onRemoved()
+    }
+}
+
+@Composable
 private fun SwipeDeleteRow(ssid: String, onDelete: () -> Unit) {
     val threshold = with(LocalDensity.current) { 72.dp.toPx() }
     var offsetX by remember(ssid) { mutableFloatStateOf(0f) }
     val animatedOffset by animateFloatAsState(targetValue = offsetX, label = "excludedSwipe")
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .offset { IntOffset(animatedOffset.roundToInt(), 0) }
-            .pointerInput(ssid) {
-                detectHorizontalDragGestures(
-                    onHorizontalDrag = { change, dragAmount ->
-                        change.consume()
-                        offsetX = (offsetX + dragAmount).coerceIn(-threshold * 2, 0f)
-                    },
-                    onDragEnd = {
-                        if (offsetX <= -threshold) onDelete()
-                        offsetX = 0f
-                    },
-                    onDragCancel = { offsetX = 0f },
+    Box(modifier = Modifier.fillMaxWidth()) {
+        // 左滑时露出的红色背景。
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(MiuixTheme.colorScheme.error),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(animatedOffset.roundToInt(), 0) }
+                .background(MiuixTheme.colorScheme.surfaceVariant)
+                .pointerInput(ssid) {
+                    detectHorizontalDragGestures(
+                        onHorizontalDrag = { change, dragAmount ->
+                            change.consume()
+                            offsetX = (offsetX + dragAmount).coerceIn(-threshold * 2, 0f)
+                        },
+                        onDragEnd = {
+                            if (offsetX <= -threshold) onDelete()
+                            offsetX = 0f
+                        },
+                        onDragCancel = { offsetX = 0f },
+                    )
+                }
+                .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(ssid, style = MiuixTheme.textStyles.body1, modifier = Modifier.weight(1f))
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = MiuixIcons.Close,
+                    contentDescription = "删除",
+                    modifier = Modifier.size(20.dp),
+                    tint = MiuixTheme.colorScheme.error,
                 )
             }
-            .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(ssid, style = MiuixTheme.textStyles.body1, modifier = Modifier.weight(1f))
-        IconButton(onClick = onDelete) {
-            Icon(
-                imageVector = MiuixIcons.Close,
-                contentDescription = "删除",
-                modifier = Modifier.size(20.dp),
-                tint = MiuixTheme.colorScheme.error,
-            )
         }
     }
 }

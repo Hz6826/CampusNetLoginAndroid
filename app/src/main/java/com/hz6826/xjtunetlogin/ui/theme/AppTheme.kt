@@ -21,9 +21,10 @@ import top.yukonga.miuix.kmp.theme.lightColorScheme
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.ThemeController
 
-/** 状态徽标语义色：等待连接 / 已连接（无需连接用主题的 onBackgroundVariant 灰）。 */
+/** 状态徽标语义色：等待连接 / 已连接 / 无需登录（固定禁用灰，不随自定义主题变化）。 */
 val StatusWaiting = Color(0xFF3482FF)
 val StatusOnline = Color(0xFF4EC96B)
+val StatusDisabled = Color(0xFF8E8E93)
 
 @Composable
 fun isDarkTheme(settings: AppSettings): Boolean = when (settings.darkMode) {

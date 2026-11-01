@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.hz6826.xjtunetlogin.model.CampusState
 import com.hz6826.xjtunetlogin.model.SessionState
 import com.hz6826.xjtunetlogin.session.SessionController
+import com.hz6826.xjtunetlogin.ui.theme.StatusDisabled
 import com.hz6826.xjtunetlogin.ui.theme.StatusOnline
 import com.hz6826.xjtunetlogin.ui.theme.StatusWaiting
 import top.yukonga.miuix.kmp.basic.Card
@@ -124,7 +125,7 @@ fun StatusCard(
         }
         state.campus == CampusState.OffCampus -> {
             badgeText = "无需登录"
-            badgeColor = MiuixTheme.colorScheme.onBackgroundVariant
+            badgeColor = StatusDisabled
         }
         else -> {
             badgeText = "等待连接"
