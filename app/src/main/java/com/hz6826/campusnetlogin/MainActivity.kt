@@ -119,7 +119,6 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Delete
-import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import top.yukonga.miuix.kmp.window.WindowDialog
@@ -150,7 +149,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private val settingsSaver = listSaver<AppSettings, Any>(
+private val settingsSaver = listSaver(
     save = {
         listOf(
             it.darkMode, it.dynamicColor, it.seedColor ?: 0, it.glassBar, it.logHttp, it.keepAlive,

@@ -49,7 +49,7 @@ object UpdateChecker {
                 val tag = release.optString("tag_name").trim()
                 if (tag.isEmpty()) continue
                 if (compareVersions(tag, current) <= 0) continue
-                if (best == null || compareVersions(tag, best!!.optString("tag_name")) > 0) best = release
+                if (best == null || compareVersions(tag, best.optString("tag_name")) > 0) best = release
             }
             val release = best ?: return@withContext null
             val assets = release.optJSONArray("assets") ?: JSONArray()
