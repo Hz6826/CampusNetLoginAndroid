@@ -122,6 +122,7 @@ import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import top.yukonga.miuix.kmp.window.WindowDialog
+import androidx.core.net.toUri
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -189,6 +190,7 @@ private fun App(
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var secondaryPage by rememberSaveable { mutableStateOf<String?>(null) }
     var updateRelease by remember { mutableStateOf<UpdateRelease?>(null) }
+    var updateSheetVisible by remember { mutableStateOf(false) }
     var updateBusy by remember { mutableStateOf(false) }
     var showAddExcluded by remember { mutableStateOf(false) }
     var showClearExcluded by remember { mutableStateOf(false) }
@@ -306,7 +308,10 @@ private fun App(
                     if (!auto) Toast.makeText(context, "已是最新版本", Toast.LENGTH_SHORT).show()
                 } else {
                     controller.recordLog("SUCCESS", "发现新版本: ${release.tag}")
-                    if (!auto || settings.ignoredUpdateVersion != release.tag) updateRelease = release
+                    if (!auto || settings.ignoredUpdateVersion != release.tag) {
+                        updateRelease = release
+                        updateSheetVisible = true
+                    }
                 }
             }.onFailure {
                 controller.recordLog("WARN", "版本检查失败: ${it.message.orEmpty()}")
@@ -325,14 +330,13 @@ private fun App(
             }
             updateBusy = false
             result.onSuccess { file ->
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-                    !context.packageManager.canRequestPackageInstalls()
+                if (!context.packageManager.canRequestPackageInstalls()
                 ) {
                     Toast.makeText(context, "请允许「安装未知应用」后重试", Toast.LENGTH_LONG).show()
                     context.startActivity(
                         Intent(
                             Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                            Uri.parse("package:${context.packageName}"),
+                            "package:${context.packageName}".toUri(),
                         ),
                     )
                 } else {
@@ -689,12 +693,14 @@ private fun App(
             updateRelease?.let { release ->
                 UpdateDialog(
                     release = release,
+                    show = updateSheetVisible,
                     busy = updateBusy,
+                    onDismissRequest = { if (!updateBusy) updateSheetVisible = false },
+                    onDismissFinished = { if (!updateSheetVisible) updateRelease = null },
                     onInstall = { installUpdate(release) },
-                    onLater = { updateRelease = null },
                     onIgnore = {
                         onSettingsChange(settings.copy(ignoredUpdateVersion = release.tag))
-                        updateRelease = null
+                        updateSheetVisible = false
                     },
                 )
             }
