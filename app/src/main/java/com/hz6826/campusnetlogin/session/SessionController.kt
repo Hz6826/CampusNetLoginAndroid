@@ -11,6 +11,7 @@ import android.os.Looper
 import com.hz6826.campusnetlogin.data.AccountStore
 import com.hz6826.campusnetlogin.data.SettingsStore
 import com.hz6826.campusnetlogin.data.currentWifiSsid
+import com.hz6826.campusnetlogin.data.ssidLogSink
 import com.hz6826.campusnetlogin.model.Account
 import com.hz6826.campusnetlogin.model.CampusState
 import com.hz6826.campusnetlogin.model.LogEntry
@@ -96,6 +97,10 @@ class SessionController(context: Context) {
     }
 
     init {
+        // 让 WifiSsid 的诊断信息也进入应用内运行日志（相同信息已由 WifiSsid 去重）。
+        ssidLogSink = { level, message ->
+            main.post { if (!closed) log(level, message) }
+        }
         // 后台/开机服务拉起时没有 Activity，必须在这里恢复 keepAlive，自动登录才会生效。
         val savedSettings = settingsStore.load()
         logHttp = savedSettings.logHttp
@@ -547,6 +552,7 @@ class SessionController(context: Context) {
         backgroundActive = false
         stop()
         closed = true
+        ssidLogSink = null
         if (registered) {
             connectivity.unregisterNetworkCallback(callback)
             registered = false

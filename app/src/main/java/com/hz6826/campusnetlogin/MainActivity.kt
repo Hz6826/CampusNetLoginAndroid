@@ -3,6 +3,7 @@ package com.hz6826.campusnetlogin
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.wifi.WifiManager
 import android.net.wifi.WifiNetworkSuggestion
 import android.os.Build
@@ -17,12 +18,17 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -52,17 +58,21 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.hz6826.campusnetlogin.data.AppSettings
 import com.hz6826.campusnetlogin.data.SettingsStore
+import com.hz6826.campusnetlogin.data.canReadSsid
 import com.hz6826.campusnetlogin.data.currentWifiSsid
-import com.hz6826.campusnetlogin.data.hasSsidPermission
 import com.hz6826.campusnetlogin.data.normalizeSsid
 import com.hz6826.campusnetlogin.update.UpdateChecker
 import com.hz6826.campusnetlogin.update.UpdateRelease
@@ -93,6 +103,7 @@ import com.hz6826.campusnetlogin.ui.theme.isDarkTheme
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Icon
@@ -184,24 +195,86 @@ private fun App(
     var newExcludedSsid by remember { mutableStateOf("") }
     var excludeSheetVisible by remember { mutableStateOf(false) }
     var excludeSheetSsid by remember { mutableStateOf<String?>(null) }
+    // 只有点了状态卡上的「加入排除列表」链接才继续；启动时的静默授权不弹任何窗。
+    var excludeRequestedByUser by remember { mutableStateOf(false) }
+    // 等待系统授权弹窗时盖在应用页面之上的说明页。
+    var permissionPageVisible by remember { mutableStateOf(false) }
+    // 授权请求是否还在等系统回调；说明页延迟到确认授权窗真的弹出后再显示。
+    var permissionRequestActive by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val ssidPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        if (granted) {
-            excludeSheetSsid = currentWifiSsid(context)
-            excludeSheetVisible = true
-        } else {
-            Toast.makeText(context, "需要定位权限才能读取当前 Wi-Fi 名称", Toast.LENGTH_LONG).show()
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        permissionRequestActive = false
+        permissionPageVisible = false
+        if (excludeRequestedByUser) {
+            excludeRequestedByUser = false
+            if (permissions.values.all { it }) {
+                val ssid = currentWifiSsid(context)
+                if (ssid != null) {
+                    excludeSheetSsid = ssid
+                    excludeSheetVisible = true
+                } else {
+                    Toast.makeText(context, "无法获取 Wi-Fi 名称，请检查系统定位服务（GPS）是否已开启", Toast.LENGTH_LONG).show()
+                }
+            } else {
+                val activity = context as? android.app.Activity
+                if (activity != null && !ActivityCompat.shouldShowRequestPermissionRationale(
+                        activity, Manifest.permission.ACCESS_FINE_LOCATION
+                    )
+                ) {
+                    Toast.makeText(context, "请在系统设置中授予定位权限", Toast.LENGTH_LONG).show()
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.fromParts("package", context.packageName, null)
+                    }
+                    context.startActivity(intent)
+                } else {
+                    Toast.makeText(context, "需要定位权限才能读取当前 Wi-Fi 名称", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    // 真正缺失、会弹系统授权窗的权限；定位服务没开时这里为空，不该弹说明页。
+    fun missingSsidPermissions(): List<String> {
+        val missing = mutableListOf<String>()
+        if (ContextCompat.checkSelfPermission(
+                context, Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            missing.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+        return missing
+    }
+
+    // 先发起系统授权，再延迟显示说明页：永久拒绝时系统会立即回调，页面就不会闪一下。
+    fun requestSsidPermissions(missing: List<String>) {
+        permissionRequestActive = true
+        ssidPermissionLauncher.launch(missing.toTypedArray())
+        scope.launch {
+            delay(200)
+            if (permissionRequestActive) permissionPageVisible = true
         }
     }
 
     fun requestExcludeCurrentNetwork() {
-        if (!hasSsidPermission(context)) {
-            ssidPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        if (!canReadSsid(context)) {
+            val missing = missingSsidPermissions()
+            if (missing.isEmpty()) {
+                // 权限都在，只是系统定位服务没开。
+                Toast.makeText(context, "请开启系统定位服务后再读取 Wi-Fi 名称", Toast.LENGTH_LONG).show()
+            } else {
+                excludeRequestedByUser = true
+                requestSsidPermissions(missing)
+            }
         } else {
-            excludeSheetSsid = currentWifiSsid(context)
-            excludeSheetVisible = true
+            val ssid = currentWifiSsid(context)
+            if (ssid != null) {
+                excludeSheetSsid = ssid
+                excludeSheetVisible = true
+            } else {
+                Toast.makeText(context, "无法获取 Wi-Fi 名称，请检查系统定位服务（GPS）是否已开启", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -284,6 +357,17 @@ private fun App(
         if (now - settings.lastUpdateCheck < 24L * 60 * 60 * 1000) return@LaunchedEffect
         onSettingsChange(settings.copy(lastUpdateCheck = now))
         checkForUpdate(auto = true)
+    }
+
+    // 首次打开 App 时，如果没有权限，先发起申请，说明页随后显示在授权窗下面。
+    LaunchedEffect(Unit) {
+        if (!canReadSsid(context)) {
+            val missing = missingSsidPermissions()
+            if (missing.isNotEmpty()) {
+                excludeRequestedByUser = false
+                requestSsidPermissions(missing)
+            }
+        }
     }
 
     SideEffect {
@@ -691,6 +775,59 @@ private fun App(
         }
     }
     }
+    PermissionNoticePage(visible = permissionPageVisible)
+    }
+}
+
+/**
+ * 等待系统授权弹窗时的权限说明页：盖在应用页面之上、系统授权窗之下。
+ * 说明文字放在屏幕上方，避免被大多数机型的授权弹窗（底部/居中）遮住。
+ */
+@Composable
+private fun PermissionNoticePage(visible: Boolean) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(200)) + slideInVertically(tween(240)) { it / 12 },
+        exit = fadeOut(tween(160)) + slideOutVertically(tween(200)) { it / 12 },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MiuixTheme.colorScheme.surface)
+                // 授权窗正在关闭的短暂动画期间也挡住误触。
+                .pointerInput(Unit) { detectTapGestures { } }
+                .padding(horizontal = 28.dp)
+                .padding(top = 100.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                "读取 Wi-Fi 名称\n需要授权",
+                style = MiuixTheme.textStyles.title1,
+                color = MiuixTheme.colorScheme.onBackground,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(20.dp))
+            Text(
+                text = "为了识别当前连接的是哪个校园 Wi-Fi，需要「定位」权限。",
+                style = MiuixTheme.textStyles.title4,
+                color = MiuixTheme.colorScheme.onBackground,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "该权限仅用于读取 Wi-Fi 名称（SSID），不会获取、保存或上传你的位置及其他个人隐私信息。",
+                style = MiuixTheme.textStyles.title4,
+                color = MiuixTheme.colorScheme.onBackground,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(24.dp))
+            Text(
+                text = "请在系统弹窗中选择「允许」",
+                style = MiuixTheme.textStyles.title4,
+                color = MiuixTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 
