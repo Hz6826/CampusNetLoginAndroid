@@ -2,7 +2,6 @@ package com.hz6826.campusnetlogin.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -23,7 +22,6 @@ import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.hz6826.campusnetlogin.model.CampusState
 import com.hz6826.campusnetlogin.model.SessionState
@@ -42,6 +40,16 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
+import com.hz6826.campusnetlogin.data.currentWifiSsid
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.rotate
 
 /** 设置页的分组列表容器（岱宗盒子 SettingsCard 风格：无内边距，行自带边距）。 */
 @Composable
@@ -116,6 +124,10 @@ fun StatusCard(
     onRefreshAndCheck: () -> Unit,
     onRequestExclude: (() -> Unit)? = null,
 ) {
+    val context = LocalContext.current
+    // 只在状态变化时重新读取，避免每次重组都做 binder 调用。
+    val currentSsid = remember(state) { currentWifiSsid(context) }
+
     val badgeText: String
     val badgeColor: Color
     when {
@@ -144,13 +156,32 @@ fun StatusCard(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Box(Modifier.size(8.dp).background(badgeColor, CircleShape))
-                    Spacer(Modifier.width(6.dp))
-                    Text(badgeText, style = MiuixTheme.textStyles.body2, color = badgeColor)
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.size(8.dp).background(badgeColor, CircleShape))
+                        Spacer(Modifier.width(6.dp))
+                        Text(badgeText, style = MiuixTheme.textStyles.body2, color = badgeColor)
+
+                        if (!currentSsid.isNullOrBlank()) {
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = "($currentSsid)",
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onBackgroundVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                        }
+                    }
+
+                    // 右侧的提示文字（如果有的话），靠右显示
                     if (state.loginFailed && state.online == null && state.campus == CampusState.OnCampus &&
                         onRequestExclude != null
                     ) {
-                        Spacer(Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp)) // 留一点间距
                         Text(
                             text = "这不是校园网？加入排除列表…",
                             style = MiuixTheme.textStyles.footnote2,
@@ -161,6 +192,22 @@ fun StatusCard(
                     }
                 }
             }
+            // 只在 busy 时创建转圈动画，空闲时不再占用帧时钟。
+            val rotation = if (state.busy) {
+                val infiniteTransition = rememberInfiniteTransition(label = "refresh_anim")
+                infiniteTransition.animateFloat(
+                    initialValue = 0f,
+                    targetValue = 360f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 1000, easing = LinearEasing),
+                        repeatMode = RepeatMode.Restart,
+                    ),
+                    label = "rotation",
+                ).value
+            } else {
+                0f
+            }
+
             IconButton(
                 onClick = onRefreshAndCheck,
                 enabled = !state.busy,
@@ -168,8 +215,10 @@ fun StatusCard(
             ) {
                 Icon(
                     imageVector = MiuixIcons.Refresh,
-                    contentDescription = "刷新状态并检测外网",
-                    modifier = Modifier.size(22.dp),
+                    contentDescription = if (state.busy) "正在刷新" else "刷新状态并检测外网",
+                    modifier = Modifier
+                        .size(22.dp)
+                        .rotate(rotation),
                     tint = MiuixTheme.colorScheme.primary,
                 )
             }
