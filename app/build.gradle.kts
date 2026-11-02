@@ -17,18 +17,19 @@ val hasReleaseSigning = !releaseKeystorePath.isNullOrBlank() &&
 
 // versionCode 由仓库根目录 version.properties 维护（CI 发版后由 GitHub Actions 自动 +1），
 // versionName 仍从 git tag 读取：CI 用 GITHUB_REF_NAME，本地回退到最近的 v* tag。
-fun versionNameFromTag(): String {
+// 必须用 providers.exec：ProcessBuilder 是 configuration time 的外部进程，会让 configuration cache 存储失败。
+val gitTag: String? = runCatching {
+    providers.exec {
+        commandLine("git", "describe", "--tags", "--match", "v*", "--abbrev=0")
+        isIgnoreExitValue = true
+    }.standardOutput.asText.get().trim()
+}.getOrNull()
+
+fun versionNameFromTag(gitTag: String?): String {
     val ciTag = System.getenv("GITHUB_REF_NAME")
     if (!ciTag.isNullOrBlank() && ciTag.startsWith("v")) return ciTag.removePrefix("v")
-    val tag = runCatching {
-        val process = ProcessBuilder("git", "describe", "--tags", "--match", "v*", "--abbrev=0")
-            .redirectErrorStream(true)
-            .start()
-        val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
-        process.waitFor()
-        output
-    }.getOrDefault("")
-    return if (tag.startsWith("v")) tag.removePrefix("v") else "1.0.0"
+    val tag = gitTag.orEmpty().trim()
+    return if (tag.startsWith("v")) tag.removePrefix("v") else "2.0.0"
 }
 
 fun versionCodeFromFile(): Int {
@@ -40,17 +41,17 @@ fun versionCodeFromFile(): Int {
     }.getOrNull()?.takeIf { it > 0 } ?: 1
 }
 
-val appVersionName = versionNameFromTag()
+val appVersionName = versionNameFromTag(gitTag)
 val appVersionCode = versionCodeFromFile()
 
 android {
-    namespace = "com.hz6826.xjtunetlogin"
+    namespace = "com.hz6826.campusnetlogin"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.hz6826.xjtunetlogin"
+        applicationId = "com.hz6826.campusnetlogin"
         minSdk = 26
         targetSdk = 37
         versionCode = appVersionCode

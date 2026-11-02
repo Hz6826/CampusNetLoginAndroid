@@ -22,6 +22,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "XJTUNetLoginAndroid"
+rootProject.name = "CampusNetLoginAndroid"
 include(":app")
  

@@ -39,7 +39,7 @@ body:
     attributes:
       label: 网络环境
       options:
-        - 校园网 Wi-Fi（XJTU-STU）
+        - 校园网 Wi-Fi
         - 其他 Wi-Fi
         - 移动数据
         - 无网络

@@ -5,9 +5,9 @@ structure, build commands or conventions change.
 
 ## What this repository is
 
-`XJTUNetLoginAndroid` is the Android client of the XJTU campus network login tool.
+`CampusNetLoginAndroid` is the Android client of the campus network login tool.
 It is a Kotlin / Jetpack Compose rewrite of the desktop Qt client
-[`XJTUNetLogin`](https://github.com/Hz6826/XJTUNetLogin) and uses
+[`CampusNetLogin`](https://github.com/Hz6826/CampusNetLogin) and uses
 [Miuix](https://github.com/compose-miuix-ui/miuix) for the UI.
 
 - Language: Kotlin
@@ -46,7 +46,7 @@ APK to a user's device unless they explicitly allow it.
 ## Repository layout
 
 ```
-app/src/main/java/com/hz6826/xjtunetlogin/
+app/src/main/java/com/hz6826/campusnetlogin/
   MainActivity.kt          entry point, navigation shell, top bar, service wiring
   data/                    AccountStore (Keystore + AES-GCM), SettingsStore (prefs)
   model/                   Account, OnlineInfo, SessionState, LogEntry

@@ -2,18 +2,18 @@
 
 <div align="center">
 
-# <img src="doc/full-icon-half.png" alt="仙交网络助手" width="400" />
+# <img src="doc/full-icon-half.png" alt="校园网络助手" width="400" />
 
-### 基于 Kotlin 与 Miuix 的西安交通大学校园网鉴权 Android 客户端
+### 基于 Kotlin 与 Miuix 的校园网鉴权 Android 客户端
 
-[![GitHub License](https://img.shields.io/github/license/Hz6826/XJTUNetLoginAndroid)](LICENSE)
-[![GitHub Issues](https://img.shields.io/github/issues/Hz6826/XJTUNetLoginAndroid)](https://github.com/Hz6826/XJTUNetLoginAndroid/issues)
-[![GitHub PRs](https://img.shields.io/github/issues-pr/Hz6826/XJTUNetLoginAndroid)](https://github.com/Hz6826/XJTUNetLoginAndroid/pulls)
-[![CI](https://img.shields.io/github/actions/workflow/status/Hz6826/XJTUNetLoginAndroid/ci.yml?label=ci&logo=github)](https://github.com/Hz6826/XJTUNetLoginAndroid/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/Hz6826/XJTUNetLoginAndroid?label=latest&logo=github)](https://github.com/Hz6826/XJTUNetLoginAndroid/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/Hz6826/XJTUNetLoginAndroid/total?logo=github)](https://github.com/Hz6826/XJTUNetLoginAndroid/releases)
-[![Platform](https://img.shields.io/badge/platform-Android-blue?logo=android)](https://github.com/Hz6826/XJTUNetLoginAndroid/releases/latest)
-![GitHub Stars](https://img.shields.io/github/stars/Hz6826/XJTUNetLoginAndroid?style=social)
+[![GitHub License](https://img.shields.io/github/license/Hz6826/CampusNetLoginAndroid)](LICENSE)
+[![GitHub Issues](https://img.shields.io/github/issues/Hz6826/CampusNetLoginAndroid)](https://github.com/Hz6826/CampusNetLoginAndroid/issues)
+[![GitHub PRs](https://img.shields.io/github/issues-pr/Hz6826/CampusNetLoginAndroid)](https://github.com/Hz6826/CampusNetLoginAndroid/pulls)
+[![CI](https://img.shields.io/github/actions/workflow/status/Hz6826/CampusNetLoginAndroid/ci.yml?label=ci&logo=github)](https://github.com/Hz6826/CampusNetLoginAndroid/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Hz6826/CampusNetLoginAndroid?label=latest&logo=github)](https://github.com/Hz6826/CampusNetLoginAndroid/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/Hz6826/CampusNetLoginAndroid/total?logo=github)](https://github.com/Hz6826/CampusNetLoginAndroid/releases)
+[![Platform](https://img.shields.io/badge/platform-Android-blue?logo=android)](https://github.com/Hz6826/CampusNetLoginAndroid/releases/latest)
+![GitHub Stars](https://img.shields.io/github/stars/Hz6826/CampusNetLoginAndroid?style=social)
 
 <img src="doc/meme.png" alt="老实登录，很枯燥吧" width="800"/>
 
@@ -23,9 +23,9 @@
 
 ## 快速开始
 
-请在 [Releases](https://github.com/Hz6826/XJTUNetLoginAndroid/releases) 界面获取最新版本；若暂时没有可用的 Release，可在 [Actions](https://github.com/Hz6826/XJTUNetLoginAndroid/actions/workflows/ci.yml) 的构建产物中下载 debug APK，或按下方[构建](#构建)说明在本地打包。
+请在 [Releases](https://github.com/Hz6826/CampusNetLoginAndroid/releases) 界面获取最新版本；若暂时没有可用的 Release，可在 [Actions](https://github.com/Hz6826/CampusNetLoginAndroid/actions/workflows/ci.yml) 的构建产物中下载 debug APK，或按下方[构建](#构建)说明在本地打包。
 
-> 想要在电脑上体验相同功能吗？欢迎访问 [XJTUNetLogin](https://github.com/Hz6826/XJTUNetLogin)。
+> 想要在电脑上体验相同功能吗？欢迎访问 [CampusNetLogin](https://github.com/Hz6826/CampusNetLogin)。
 
 - 支持 Android 8.0（API 26）及以上
 - 使用与桌面版相同的门户协议，账号密码经 Android Keystore + AES-GCM 加密保存在本机
@@ -59,7 +59,7 @@
 | 托盘最小化等桌面特性  | :x:                 |
 | 多平台（Windows/macOS/Linux） | :x: ^1             |
 
-^1: 桌面版（Windows/macOS/Linux）：[XJTUNetLogin](https://github.com/Hz6826/XJTUNetLogin)。
+^1: 桌面版（Windows/macOS/Linux）：[CampusNetLogin](https://github.com/Hz6826/CampusNetLogin)。
 
 应用内更新通过 GitHub Releases 的匿名 API 检查，默认在启动时静默检查（每天最多一次），可在「设置 → 更新」中开启预览版或手动检查。下载 APK 后会先按 API 提供的 SHA-256 校验，再交给系统安装器；首次安装需要允许「安装未知应用」权限。
 
@@ -67,8 +67,8 @@
 
 1. 打开应用，输入学号或工号及校园网密码。默认账户域为 `@stu`，AC ID 为 `1`，认证地址为 `http://10.6.21.2`；可在「设置 → 连接 → 连接设置」中修改。
 2. 如需后台自动认证，先在登录页勾选「记住账户」并登录成功，再进入「设置 → 连接 → 保活配置」开启「前台保活与自动登录」。也可在连接 Wi-Fi 后点击「登录校园网」手动登录。登录成功后账户与连接设置自动锁定，按钮变为「注销当前连接」；注销后解锁。
-3. Android 10 及以上可在「连接设置」中点击「启用校园 Wi-Fi 自动连接」，按系统提示允许后，系统会将开放网络 `XJTU-STU` 纳入自动连接候选。Android 8 和 9 可在系统 Wi-Fi 设置中连接并启用自动连接。
-4. 底部有「登录」「记录」「信息」「设置」四个标签页。登录页顶部状态卡显示连接状态（蓝「等待连接」/ 灰「无需登录」/ 绿「已连接」），卡内按钮刷新状态并检测外网。设置页可切换「深色模式」（跟随系统/浅色/深色）、「主题色」（Miuix 蓝（默认）、跟随系统取色或仙交蓝/校园绿等预设）和「液态玻璃底栏」（Android 12+）；「连接设置」「保活配置」「关于」「贡献者」「参考项目及许可」都是独立二级页。
+3. Android 10 及以上可在「连接设置」里填写校园 Wi-Fi 名称，留空则使用当前连接的 Wi-Fi；点击「启用校园 Wi-Fi 自动连接」，按系统提示允许后，系统会将该网络纳入自动连接候选。Android 8 和 9 可在系统 Wi-Fi 设置中连接并启用自动连接。
+4. 底部有「登录」「记录」「信息」「设置」四个标签页。登录页顶部状态卡显示连接状态（蓝「等待连接」/ 灰「无需登录」/ 绿「已连接」），卡内按钮刷新状态并检测外网。设置页可切换「深色模式」（跟随系统/浅色/深色）、「主题色」（Miuix 蓝（默认）、跟随系统取色或黛蓝/松绿等预设）和「液态玻璃底栏」（Android 12+）；「连接设置」「保活配置」「关于」「贡献者」「参考项目及许可」都是独立二级页。
 
 「记住账户」使用 Android Keystore 和 AES-GCM 加密存储账户配置。关闭后立即清除已保存的数据。自动登录与前台保活合并为「保活配置」里的一个开关，开启条件为登录成功过且当前记住了账户。
 
@@ -80,12 +80,12 @@
 
 - 「Miuix 蓝（默认）」：Miuix 原生浅色/深色配色
 - 「跟随系统取色」：尝试读取系统 Monet 取色（Android 12+），读不到时回落到蓝色
-- 预设主题色：仙交蓝、校园绿、梧桐橙、创新港青、梧桐紫、交大红（基于种子色生成整套配色）
+- 预设主题色：Miuix 蓝（默认）、黛蓝、松绿、暖橙、青瓷、藤紫、绯红（基于种子色生成整套配色）
 - 「液态玻璃底栏」：Android 12+ 可开启 Apple 风格浮动胶囊底栏
 
 ## 原理
 
-本仓库协议实现参考了登录门户 JS 与桌面版 [XJTUNetLogin](https://github.com/Hz6826/XJTUNetLogin)，核心代码在 `net/` 目录（`SrunClient`、`SrunCrypto`、`WifiTransport`）：
+本仓库协议实现参考了登录门户 JS 与桌面版 [CampusNetLogin](https://github.com/Hz6826/CampusNetLogin)，核心代码在 `net/` 目录（`SrunClient`、`SrunCrypto`、`WifiTransport`）：
 
 ### 登录
 
@@ -132,7 +132,7 @@ macOS / Linux：
 
 本项目以 **[GPL-3.0](LICENSE)** 发布。使用的开源组件与参考项目见应用内「关于 → 参考项目及许可」。
 
-桌面版项目 [XJTUNetLogin](https://github.com/Hz6826/XJTUNetLogin) 以 MIT License 独立开源。
+桌面版项目 [CampusNetLogin](https://github.com/Hz6826/CampusNetLogin) 以 MIT License 独立开源。
 
 ## 致谢
 
@@ -142,12 +142,12 @@ macOS / Linux：
 
 ### 贡献者
 
-<a href="https://github.com/Hz6826/XJTUNetLoginAndroid/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=Hz6826/XJTUNetLoginAndroid" alt="Contributors" />
+<a href="https://github.com/Hz6826/CampusNetLoginAndroid/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Hz6826/CampusNetLoginAndroid" alt="Contributors" />
 </a>
 
 ## Star History
 
 _如果觉得这个项目对你有帮助的话，麻烦点一下右上角的 Star，你的支持是我最大的动力，谢谢喵~_
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Hz6826/XJTUNetLoginAndroid&type=Date)](https://www.star-history.com/#Hz6826/XJTUNetLoginAndroid&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=Hz6826/CampusNetLoginAndroid&type=Date)](https://www.star-history.com/#Hz6826/CampusNetLoginAndroid&Date)
