@@ -40,6 +40,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -710,7 +711,12 @@ private fun App(
                 onDismissRequest = { excludeSheetVisible = false },
                 onDismissFinished = { excludeSheetVisible = false },
             ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
+                ) {
                     Text(
                         text = "宿舍网等网络有时也能访问到内网认证服务器，如果你确定这不是校园网，可点击确认将该 Wi-Fi 加入排除列表。",
                         style = MiuixTheme.textStyles.body2,
