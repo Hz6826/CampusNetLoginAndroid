@@ -133,12 +133,21 @@ class AutoLoginService : Service() {
     private fun openAppIntent(): PendingIntent = PendingIntent.getActivity(
         this,
         0,
-        Intent(this, MainActivity::class.java),
+        Intent(this, MainActivity::class.java).apply {
+            // 应用已有实例时复用它（onNewIntent），否则会再压一层 MainActivity。
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        },
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
     private fun openApp() {
-        startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        startActivity(
+            Intent(this, MainActivity::class.java).addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP,
+            ),
+        )
     }
 
     companion object {
