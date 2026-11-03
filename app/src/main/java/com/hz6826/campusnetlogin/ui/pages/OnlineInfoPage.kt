@@ -47,6 +47,7 @@ fun OnlineInfoPage(controller: SessionController, state: SessionState, onRequest
             if (!controller.state.busy) refreshing = false
         },
         modifier = Modifier.fillMaxSize(),
+        refreshTexts = listOf("下拉刷新", "松开刷新", "正在刷新…", "刷新完成"),
     ) {
         Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
             Spacer(Modifier.height(8.dp))
