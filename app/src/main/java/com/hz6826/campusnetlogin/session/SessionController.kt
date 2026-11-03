@@ -260,14 +260,11 @@ class SessionController(context: Context) {
             label = "开始登录…",
             baseOverride = updated.baseUrl,
             silent = automatic,
-            onFailure = { failedNetwork, error ->
-                if (error is IOException) {
-                    main.post {
-                        if (!closed && (failedNetwork == null || failedNetwork == currentNetwork)) {
-                            state = state.copy(loginFailed = true, campus = CampusState.OnCampus)
-                            emit()
-                        }
-                    }
+            onFailure = { failedNetwork, _ ->
+                // 服务器返回的认证错误也应提示排除当前 Wi-Fi。
+                if (!closed && failedNetwork == currentNetwork) {
+                    state = state.copy(loginFailed = true, campus = CampusState.OnCampus)
+                    emit()
                 }
             },
         ) { client, network, _ ->
