@@ -125,9 +125,15 @@ import top.yukonga.miuix.kmp.window.WindowDialog
 import androidx.core.net.toUri
 
 class MainActivity : ComponentActivity() {
+
+    /** 最近一次从 intent 来的页面请求；每次换一个新实例，Compose 那边才认得出「又跳了一次」。 */
+    private var navSeq = 0
+    private val navRequest = mutableStateOf<NavRequest?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        navRequest.value = navFrom(intent)
         val session = SessionHolder.get(applicationContext)
         setContent {
             val store = remember { SettingsStore(applicationContext) }
@@ -143,11 +149,38 @@ class MainActivity : ComponentActivity() {
                         store.save(it)
                     },
                     store = store,
+                    navRequest = navRequest.value,
                 )
             }
         }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        navRequest.value = navFrom(intent)
+    }
+
+    private fun navFrom(intent: Intent?): NavRequest? {
+        val page = intent?.getStringExtra(EXTRA_PAGE)?.trim()?.lowercase() ?: return null
+        val tab = when (page) {
+            "logs" -> 1
+            "info" -> 2
+            "settings" -> 3
+            else -> 0
+        }
+        val sub = page.takeIf { it == "keepalive" || it == "connection" }
+        return NavRequest(tab, sub, ++navSeq)
+    }
+
+    companion object {
+        /** 外部（比如盒子插件）打开指定页面：login / logs / info / settings / keepalive / connection。 */
+        const val EXTRA_PAGE = "page"
+    }
 }
+
+/** 一次页面跳转请求。 */
+data class NavRequest(val tab: Int, val page: String?, val seq: Int)
 
 private val settingsSaver = listSaver(
     save = {
@@ -156,6 +189,7 @@ private val settingsSaver = listSaver(
             it.autoCheckUpdate, it.previewUpdates, it.ignoredUpdateVersion ?: "", it.lastUpdateCheck,
             it.excludedSsids.toList(),
             it.campusSsid,
+            it.remoteEnabled,
         )
     },
     restore = {
@@ -172,6 +206,7 @@ private val settingsSaver = listSaver(
             lastUpdateCheck = it[9] as Long,
             excludedSsids = (it[10] as List<*>).filterIsInstance<String>().toSet(),
             campusSsid = it[11] as String,
+            remoteEnabled = it[12] as Boolean,
         )
     },
 )
@@ -182,6 +217,7 @@ private fun App(
     settings: AppSettings,
     onSettingsChange: (AppSettings) -> Unit,
     store: SettingsStore,
+    navRequest: NavRequest?,
 ) {
     val context = LocalContext.current
     var state by remember { mutableStateOf(controller.state) }
@@ -189,6 +225,13 @@ private fun App(
     var draft by rememberSaveable(stateSaver = draftSaver) { mutableStateOf(Draft()) }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var secondaryPage by rememberSaveable { mutableStateOf<String?>(null) }
+
+    // 外部用 intent 指定页面（插件那边「日志」「设置」两个入口就靠这个）
+    LaunchedEffect(navRequest) {
+        val request = navRequest ?: return@LaunchedEffect
+        selectedTab = request.tab
+        if (request.page != null) secondaryPage = request.page
+    }
     var updateRelease by remember { mutableStateOf<UpdateRelease?>(null) }
     var updateSheetVisible by remember { mutableStateOf(false) }
     var updateBusy by remember { mutableStateOf(false) }

@@ -45,6 +45,8 @@
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Monitor Wi-Fi connectivity and authenticate to the campus network when the user enables automatic login" />
         </service>
+        <!-- 遥控入口：只给岱宗盒子的插件用，exported + 运行时按 uid 校验调用方包名（见 RemoteControlService） -->
+        <service android:name=".remote.RemoteControlService" android:exported="true" />
         <activity android:name=".MainActivity" android:exported="true"
             android:windowSoftInputMode="stateHidden|adjustResize">
             <intent-filter>

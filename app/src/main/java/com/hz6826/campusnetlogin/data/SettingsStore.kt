@@ -21,6 +21,8 @@ data class AppSettings(
     /** 不视为校园网的 Wi-Fi 名称（排除列表）。 */
     val excludedSsids: Set<String> = emptySet(),
     val campusSsid: String = "",
+    /** 允许岱宗盒子的插件遥控本应用（查状态、登录、注销）。 */
+    val remoteEnabled: Boolean = true,
 )
 
 /** [seed] 为 null 表示使用 Miuix 原生默认蓝色配色（不是种子生成的）。 */
@@ -70,6 +72,7 @@ class SettingsStore(context: Context) {
             lastUpdateCheck = prefs.getLong("lastUpdateCheck", 0L),
             excludedSsids = prefs.getStringSet("excludedSsids", emptySet())?.toSet() ?: emptySet(),
             campusSsid = prefs.getString("campusSsid", "") ?: "",
+            remoteEnabled = prefs.getBoolean("remoteEnabled", true),
         )
     }
 
@@ -94,6 +97,7 @@ class SettingsStore(context: Context) {
             .putLong("lastUpdateCheck", settings.lastUpdateCheck)
             .putStringSet("excludedSsids", settings.excludedSsids)
             .putString("campusSsid", settings.campusSsid)
+            .putBoolean("remoteEnabled", settings.remoteEnabled)
             .apply()
     }
 }

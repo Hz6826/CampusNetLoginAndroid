@@ -120,6 +120,12 @@ fun SettingsPage(
                 summary = if (settings.excludedSsids.isEmpty()) "不自动登录、也不当作校园网的 Wi-Fi" else "已排除 ${settings.excludedSsids.size} 个 Wi-Fi",
                 onClick = onOpenExcluded,
             )
+            SwitchPreference(
+                title = "允许盒子遥控",
+                summary = "岱宗盒子的插件可以查状态、登录、注销，账号密码不出本应用",
+                checked = settings.remoteEnabled,
+                onCheckedChange = { onSettingsChange(settings.copy(remoteEnabled = it)) },
+            )
         }
 
         SmallTitle("关于")
